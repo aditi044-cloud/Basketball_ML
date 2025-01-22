@@ -3,9 +3,10 @@ import pickle
 import numpy as np
 import random
 import math
+import os
 from Training_game import Game, WIDTH, HEIGHT, MAX_POWER, RIM_Y, WHITE, BLACK, BALL_RADIUS, RIM_RADIUS, RIM_VERTICAL_OFFSET, RIM_HEIGHT
 
-# Define the Button class
+
 class Button:
     def __init__(self, x, y, width, height, text, color):
         self.rect = pygame.Rect(x, y, width, height)
@@ -16,7 +17,7 @@ class Button:
     def draw(self, screen, font):
         color = (min(self.color[0] + 30, 255), min(self.color[1] + 30, 255), min(self.color[2] + 30, 255)) if self.is_hovered else self.color
         pygame.draw.rect(screen, color, self.rect)
-        text_surface = font.render(self.text, True, WHITE)
+        text_surface = font.render(self.text, True, BLACK)
         text_rect = text_surface.get_rect(center=self.rect.center)
         screen.blit(text_surface, text_rect)
 
@@ -52,14 +53,14 @@ class AutoGame(Game):
             model_data = pickle.load(f)
             self.model_l = model_data['model']
             self.poly_l = model_data['poly']
-        self.player_left_name = left_model_file.split('.')[0]
+        self.player_left_name = os.path.basename(left_model_file).split('.')[0]
 
         right_model_file = 'modelr.pkl'
         with open(right_model_file, 'rb') as f:
             model_data = pickle.load(f)
             self.model_r = model_data['model']
             self.poly_r = model_data['poly']
-        self.player_right_name = right_model_file.split('.')[0]
+        self.player_right_name = os.path.basename(right_model_file).split('.')[0]
 
     def auto_shoot(self):
         rim_x = np.array([[self.rim_x]])
@@ -143,12 +144,10 @@ class AutoGame(Game):
                     )
 
     def show_game_over_screen(self):
-        # Create a larger font for the game over screen
         game_over_font = pygame.font.SysFont(None, 72)
         stats_font = pygame.font.SysFont(None, 48)
         button_font = pygame.font.SysFont(None, 36)
 
-        # Create the "Play Again" button
         play_again_btn = Button(WIDTH // 2 - 100, HEIGHT // 2 + 100, 200, 50, "Play Again", (0, 100, 0))
 
         while True:
@@ -159,20 +158,16 @@ class AutoGame(Game):
                     self.reset_game()
                     return True
 
-            # Draw the game over screen
-            self.screen.fill(BLACK)
+            self.screen.fill(WHITE)
 
-            # Display "Game Over!" text
-            game_over_text = game_over_font.render("Game Over!", True, WHITE)
+            game_over_text = game_over_font.render("Game Over!", True, BLACK)
             self.screen.blit(game_over_text, (WIDTH // 2 - game_over_text.get_width() // 2, HEIGHT // 2 - 150))
 
-            # Display player names and scores
-            left_player_text = stats_font.render(f"{self.player_left_name}: {self.baskets_scored_left}", True, WHITE)
-            right_player_text = stats_font.render(f"{self.player_right_name}: {self.baskets_scored_right}", True, WHITE)
+            left_player_text = stats_font.render(f"{self.player_left_name}: {self.baskets_scored_left}", True, BLACK)
+            right_player_text = stats_font.render(f"{self.player_right_name}: {self.baskets_scored_right}", True, BLACK)
             self.screen.blit(left_player_text, (WIDTH // 2 - left_player_text.get_width() // 2, HEIGHT // 2 - 50))
             self.screen.blit(right_player_text, (WIDTH // 2 - right_player_text.get_width() // 2, HEIGHT // 2))
 
-            # Draw the "Play Again" button
             play_again_btn.draw(self.screen, button_font)
 
             pygame.display.flip()
@@ -263,14 +258,16 @@ class AutoGame(Game):
         pygame.quit()
 
     def display_stats(self):
-        chances_text = self.font.render(f"Chances: {self.chances_played} / 15", True, WHITE)
-        score_left_text = self.font.render(f"Left Baskets: {self.baskets_scored_left}", True, WHITE)
-        score_right_text = self.font.render(f"Right Baskets: {self.baskets_scored_right}", True, WHITE)
-        fps_text = self.font.render(f"FPS: {int(self.clock.get_fps())}", True, WHITE)
-        self.screen.blit(chances_text, (10, 10))
-        self.screen.blit(score_left_text, (10, 50))
-        self.screen.blit(score_right_text, (10, 90))
-        self.screen.blit(fps_text, (10, 130))
+        score_left_text = self.font.render(f"Left Baskets: {self.baskets_scored_left}", True, BLACK)
+        self.screen.blit(score_left_text, (10, 16))
+
+        score_right_text = self.font.render(f"Right Baskets: {self.baskets_scored_right}", True, BLACK)
+        score_right_rect = score_right_text.get_rect(topright=(WIDTH - 10, 16))
+        self.screen.blit(score_right_text, score_right_rect)
+
+        chances_text = self.font.render(f"Chances: {self.chances_played} / 15", True, BLACK)
+        chances_rect = chances_text.get_rect(midtop=(WIDTH // 2, 16))
+        self.screen.blit(chances_text, chances_rect)
 
 if __name__ == "__main__":
     game = AutoGame()

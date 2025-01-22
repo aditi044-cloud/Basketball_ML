@@ -54,9 +54,10 @@ class Game:
         self.clock = pygame.time.Clock()
 
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        self.hoop_image = pygame.image.load(os.path.join(script_dir, 'hoop.png'))
-        self.ball_image = pygame.image.load(os.path.join(script_dir, 'ball.png'))
-        self.background_image = pygame.image.load(os.path.join(script_dir, 'background.png'))
+        assets_dir = os.path.join(script_dir, 'assets')
+        self.hoop_image = pygame.image.load(os.path.join(assets_dir, 'hoop.png'))
+        self.ball_image = pygame.image.load(os.path.join(assets_dir, 'ball.png'))
+        self.background_image = pygame.image.load(os.path.join(assets_dir, 'background.png'))
         
         self.hoop_image = pygame.transform.scale(self.hoop_image, (150, 150))
         self.ball_image = pygame.transform.scale(self.ball_image, (BALL_RADIUS * 2, BALL_RADIUS * 2))
@@ -232,7 +233,6 @@ class Game:
         running = True
         
         while running:
-            fps = self.clock.get_fps()
             mouse_pos = pygame.mouse.get_pos()
             
             self.screen.blit(self.background_image, (0, 0))
@@ -264,8 +264,8 @@ class Game:
                 self.update_drag_indicators(mouse_pos)
                 arrow_color = self.get_arrow_color(self.current_speed)
                 self.draw_arrow(self.screen, (self.arrow_x, self.arrow_y), mouse_pos, arrow_color)
-                speed_text = self.font.render(f"Speed: {int(self.current_speed)}", True, WHITE)
-                angle_text = self.font.render(f"Angle: {int(self.current_angle)}°", True, WHITE)
+                speed_text = self.font.render(f"Speed: {int(self.current_speed)}", True, BLACK)
+                angle_text = self.font.render(f"Angle: {int(self.current_angle)}°", True, BLACK)
                 self.screen.blit(speed_text, (WIDTH - 200, 10))
                 self.screen.blit(angle_text, (WIDTH - 200, 50))
 
@@ -297,18 +297,15 @@ class Game:
                     if rim_collision:
                         self.last_bounce_time = current_time
                         bounce_speed = current_speed * 0.15
-                        
                         if collision_type in ["front_left", "front_right"]:
                             bounce_angle = math.pi - math.atan2(-dy, dx)
                             bounce_angle += 0.1 if bounce_angle > 0 else -0.1
                         elif collision_type in ["top_left", "top_right"]:
                             bounce_angle = -math.atan2(dy, dx)
                             bounce_angle += 0.2 if collision_type == "top_right" else -0.2
-                            
                         self.trajectory = self.calculate_trajectory(bounce_speed * 60, bounce_angle, self.arrow_x, self.arrow_y)
-
-                self.check_basket_score(self.arrow_x, self.arrow_y)
-
+                if self.check_basket_score(self.arrow_x, self.arrow_y):
+                    self.baskets_scored += 1
                 if not self.trajectory or self.arrow_y >= HEIGHT:
                     self.arrow_in_motion = False
                     self.trajectory = []
@@ -322,12 +319,12 @@ class Game:
                         if not self.show_game_over_screen():
                             running = False
 
-            chances_text = self.font.render(f"Chances: {self.chances_played} / 15", True, WHITE)
+            chances_text = self.font.render(f"Chances: {self.chances_played} / 15", True, BLACK)
             self.screen.blit(chances_text, (10, 10))
-            score_text = self.font.render(f"Baskets Scored: {self.baskets_scored} / 15", True, WHITE)
-            self.screen.blit(score_text, (10, 50))
-            fps_text = self.font.render(f"FPS: {int(fps)}", True, WHITE)
-            self.screen.blit(fps_text, (10, 90))
+
+            score_text = self.font.render(f"Baskets Scored: {self.baskets_scored} / 15", True, BLACK)
+            self.screen.blit(score_text, (10, 40))
+
             pygame.display.flip()
             self.clock.tick(60)
         pygame.quit()

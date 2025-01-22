@@ -46,7 +46,7 @@ Basketball_ML/
 
 ### Prerequisites
 ```bash
-pip install numpy pandas pickle pygame
+pip install numpy pandas pickle pygame scikit-learn
 ```
 
 ### Usage

@@ -15,7 +15,7 @@ This project consists of three main components:
 Basketball_ML/
 ├── training_game.py      # Interactive basketball game for data collection
 ├── poly_regression.ipynb # Jupyter notebook for model training
-├── trained_game.py      # Game environment for testing the trained model
+├── test_model.py      # Game environment for testing the trained model
 ├── data.csv             # Collected game data
 └── model.pkl            # Exported trained model
 ```
@@ -37,7 +37,7 @@ Basketball_ML/
 - Processes collected game data from data.csv
 - Exports the trained model as a pickle file
 
-### Model Testing (`trained_game.py`)
+### Model Testing (`test_model.py`)
 - Testing environment for the trained model
 - Imports the trained polynomial regression model
 - Allows validation of model predictions in the game environment
@@ -46,7 +46,7 @@ Basketball_ML/
 
 ### Prerequisites
 ```bash
-pip install -r requirements.txt
+pip install numpy pandas pickle pygame
 ```
 
 ### Usage
@@ -65,14 +65,7 @@ pip install -r requirements.txt
 
 3. **Testing**
    ```bash
-   python trained_game.py
+   python Test_model.py
    ```
    - Test the trained model's predictions
 
-## Contributing
-
-Feel free to fork the repository and submit pull requests for any improvements.
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.

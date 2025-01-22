@@ -62,6 +62,7 @@ pip install numpy pandas pickle pygame scikit-learn
    - Open `poly_regression.ipynb` in Jupyter Notebook
    - Run all cells to train the model
    - The model will be saved as `model.pkl`
+   - move the model to teams folder(create one if it doesn't exist)
 
 3. **Testing**
    ```bash

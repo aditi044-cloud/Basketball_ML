@@ -8,9 +8,9 @@ import pickle
 
 WIDTH, HEIGHT = 800, 600
 BALL_RADIUS = 20
-RIM_RADIUS = 40
+RIM_RADIUS = 35
 RIM_THICKNESS = 5
-RIM_HEIGHT = 42
+RIM_HEIGHT = 32
 GRAVITY = 17
 POWER_SCALING = 0.8
 MAX_POWER = 105
@@ -18,8 +18,7 @@ WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 RED = (255, 0, 0)
 GREEN = (0, 255, 0)
-BACKBOARD_WIDTH = 15
-BACKBOARD_HEIGHT = 100
+ORANGE_YELLOW = (255, 165, 0)
 RIM_Y = HEIGHT - 300
 RIM_OFFSET = 35
 RIM_VERTICAL_OFFSET = 20
@@ -65,50 +64,39 @@ class Game:
 
         self.total_energy = 0
         self.avg_energy = 0
+        self.current_speed = 0
+        self.current_angle = 0
+        self.drag_start_pos = None
         
         self.shot_data = []
         self.reset_game()
 
     def check_rim_collision(self, prev_x, prev_y, ball_x, ball_y):
-        rim_left_x = self.rim_x - RIM_RADIUS
-        rim_right_x = self.rim_x + RIM_RADIUS
-        back_rim_x = self.rim_x + RIM_RADIUS + RIM_OFFSET
+        rim_left_x = self.rim_x - RIM_RADIUS + 10
+        rim_right_x = self.rim_x + RIM_RADIUS + 4
         rim_collision_y = RIM_Y + RIM_VERTICAL_OFFSET
-        
         moving_right = ball_x > prev_x
         moving_left = ball_x < prev_x
-
+        moving_down = ball_y > prev_y
+        if (rim_left_x <= ball_x <= rim_right_x and 
+            abs(ball_y - rim_collision_y) <= BALL_RADIUS and 
+            moving_down):
+            if ball_x < self.rim_x:
+                return True, "top_left"
+            else:
+                return True, "top_right"
         if rim_collision_y <= ball_y <= rim_collision_y + RIM_HEIGHT * 2:
-            if (moving_right and 
-                abs(ball_x - rim_left_x) <= BALL_RADIUS and
-                rim_collision_y <= ball_y <= rim_collision_y + RIM_HEIGHT * 2):
-                return True, "front_left"
-            
-            if (moving_left and 
-                abs(ball_x - rim_right_x) <= BALL_RADIUS and
-                rim_collision_y <= ball_y <= rim_collision_y + RIM_HEIGHT * 2):
-                return True, "front_right"
-            
-            if (moving_left and
-                abs(ball_x - back_rim_x) <= BALL_RADIUS and
-                rim_collision_y <= ball_y <= rim_collision_y + RIM_HEIGHT * 2):
-                return True, "back"
+            if (abs(ball_x - rim_left_x) <= BALL_RADIUS):
+                if moving_right:
+                    return True, "front_left"
+                elif moving_left:
+                    return True, "back_left"
+            if (abs(ball_x - rim_right_x) <= BALL_RADIUS):
+                if moving_left:
+                    return True, "front_right"
+                elif moving_right:
+                    return True, "back_right"
         return False, None
-
-    def check_backboard_collision(self, prev_x, prev_y, ball_x, ball_y):
-        BACKBOARD_COLLISION_OFFSET = 35
-        backboard_x = self.rim_x + RIM_RADIUS + RIM_OFFSET - BACKBOARD_COLLISION_OFFSET
-        backboard_y = RIM_Y - BACKBOARD_HEIGHT // 2
-
-        BACKBOARD_EXTENSION = 50
-        moving_right = ball_x > prev_x
-        if (
-            moving_right and
-            prev_x <= backboard_x <= ball_x + BALL_RADIUS and
-            backboard_y <= ball_y <= backboard_y + BACKBOARD_HEIGHT + BACKBOARD_EXTENSION
-        ):
-            return True
-        return False
 
     def reset_game(self):
         self.chances_played = 0
@@ -125,6 +113,9 @@ class Game:
         self.prev_positions = []
         self.last_bounce_time = 0
         self.shot_data = []
+        self.drag_start_pos = None
+        self.current_speed = 0
+        self.current_angle = 0
 
     def calculate_trajectory(self, speed, angle, start_x, start_y):
         trajectory = []
@@ -161,6 +152,46 @@ class Game:
                         return True
             return False
 
+    def update_drag_indicators(self, mouse_pos):
+        if self.drag_start_pos:
+            dx = mouse_pos[0] - self.drag_start_pos[0]
+            dy = mouse_pos[1] - self.drag_start_pos[1]
+            
+            raw_speed = math.hypot(dx, dy) * POWER_SCALING
+            self.current_speed = min(raw_speed, MAX_POWER)
+            
+            self.current_angle = math.degrees(math.atan2(-dy, dx))
+            if self.current_angle < 0:
+                self.current_angle += 360
+
+    def get_arrow_color(self, speed):
+        if speed < 50:
+            return GREEN
+        elif 50 <= speed < 105:
+            ratio = (speed - 50) / (105 - 50)
+            r = int(GREEN[0] + (ORANGE_YELLOW[0] - GREEN[0]) * ratio)
+            g = int(GREEN[1] + (ORANGE_YELLOW[1] - GREEN[1]) * ratio)
+            b = int(GREEN[2] + (ORANGE_YELLOW[2] - GREEN[2]) * ratio)
+            return (r, g, b)
+        else:
+            return RED
+
+    def draw_arrow(self, screen, start, end, color, arrow_size=10):
+        dx = end[0] - start[0]
+        dy = end[1] - start[1]
+        angle = math.atan2(dy, dx)
+        length = math.hypot(dx, dy)
+
+        pygame.draw.line(screen, color, start, end, 2)
+
+        arrow_points = [
+            (end[0] - arrow_size * math.cos(angle - math.pi / 6), end[1] - arrow_size * math.sin(angle - math.pi / 6)),
+            end,
+            (end[0] - arrow_size * math.cos(angle + math.pi / 6), end[1] - arrow_size * math.sin(angle + math.pi / 6))
+        ]
+
+        pygame.draw.polygon(screen, color, arrow_points)
+
     def export_shot_data(self):
         script_dir = os.path.dirname(os.path.abspath(__file__))
         csv_path = os.path.join(script_dir, 'data.csv')
@@ -170,11 +201,13 @@ class Game:
             if not file_exists:
                 writer.writerow(['Speed', 'Angle', 'Rim_Center_X'])
             for shot in self.shot_data:
-                writer.writerow(shot)
+                speed = round(shot[0], 2)
+                angle = round(shot[1], 2)
+                rim_x = shot[2]
+                writer.writerow([speed, angle, rim_x])
 
     def show_game_over_screen(self):
         self.export_shot_data()
-        
         play_again_btn = Button(WIDTH//2 - 100, HEIGHT//2 + 50, 200, 50, "Play Again", (0, 100, 0))
         
         while True:
@@ -200,6 +233,7 @@ class Game:
         
         while running:
             fps = self.clock.get_fps()
+            mouse_pos = pygame.mouse.get_pos()
             
             self.screen.blit(self.background_image, (0, 0))
 
@@ -210,20 +244,30 @@ class Game:
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     if math.hypot(event.pos[0] - self.arrow_x, event.pos[1] - self.arrow_y) <= BALL_RADIUS:
                         self.dragging = True
+                        self.drag_start_pos = event.pos
 
                 if event.type == pygame.MOUSEBUTTONUP:
                     if self.dragging:
                         self.dragging = False
-                        dx, dy = self.arrow_x - event.pos[0], self.arrow_y - event.pos[1]
-                        raw_speed = math.hypot(dx, dy) * POWER_SCALING
-                        self.arrow_speed = min(raw_speed, MAX_POWER)
-                        self.arrow_angle = math.atan2(-dy, dx)
-                        self.trajectory = self.calculate_trajectory(self.arrow_speed, self.arrow_angle, self.arrow_x, self.arrow_y)
-                        self.shot_data.append([self.arrow_speed, math.degrees(self.arrow_angle), self.rim_x])
-                        self.arrow_in_motion = True
-                        self.basket_scored_this_chance = False
-                        self.prev_positions = []
-                        self.last_bounce_time = 0
+                        self.drag_start_pos = None
+                        if self.current_speed > 0:
+                            self.arrow_speed = self.current_speed
+                            self.arrow_angle = math.radians(self.current_angle)
+                            self.trajectory = self.calculate_trajectory(self.arrow_speed, self.arrow_angle, self.arrow_x, self.arrow_y)
+                            self.shot_data.append([self.arrow_speed, self.current_angle, self.rim_x])
+                            self.arrow_in_motion = True
+                            self.basket_scored_this_chance = False
+                            self.prev_positions = []
+                            self.last_bounce_time = 0
+
+            if self.dragging:
+                self.update_drag_indicators(mouse_pos)
+                arrow_color = self.get_arrow_color(self.current_speed)
+                self.draw_arrow(self.screen, (self.arrow_x, self.arrow_y), mouse_pos, arrow_color)
+                speed_text = self.font.render(f"Speed: {int(self.current_speed)}", True, WHITE)
+                angle_text = self.font.render(f"Angle: {int(self.current_angle)}°", True, WHITE)
+                self.screen.blit(speed_text, (WIDTH - 200, 10))
+                self.screen.blit(angle_text, (WIDTH - 200, 50))
 
             ball_rect = self.ball_image.get_rect()
             ball_rect.centerx = int(self.arrow_x)
@@ -252,17 +296,15 @@ class Game:
                     rim_collision, collision_type = self.check_rim_collision(prev_x, prev_y, self.arrow_x, self.arrow_y)
                     if rim_collision:
                         self.last_bounce_time = current_time
-                        bounce_speed = current_speed * 0.1
-
-                        if collision_type in ["front_left", "front_right", "back"]:
+                        bounce_speed = current_speed * 0.15
+                        
+                        if collision_type in ["front_left", "front_right"]:
                             bounce_angle = math.pi - math.atan2(-dy, dx)
                             bounce_angle += 0.1 if bounce_angle > 0 else -0.1
-                        self.trajectory = self.calculate_trajectory(bounce_speed * 60, bounce_angle, self.arrow_x, self.arrow_y)
-
-                    elif self.check_backboard_collision(prev_x, prev_y, self.arrow_x, self.arrow_y):
-                        self.last_bounce_time = current_time
-                        bounce_speed = current_speed * 0.1
-                        bounce_angle = math.pi - math.atan2(-dy, dx)
+                        elif collision_type in ["top_left", "top_right"]:
+                            bounce_angle = -math.atan2(dy, dx)
+                            bounce_angle += 0.2 if collision_type == "top_right" else -0.2
+                            
                         self.trajectory = self.calculate_trajectory(bounce_speed * 60, bounce_angle, self.arrow_x, self.arrow_y)
 
                 self.check_basket_score(self.arrow_x, self.arrow_y)
@@ -273,6 +315,8 @@ class Game:
                     self.arrow_x, self.arrow_y = 100, HEIGHT - 100
                     self.chances_played += 1
                     self.rim_x = random.randint(200, WIDTH - 200)
+                    self.current_speed = 0
+                    self.current_angle = 0
                     
                     if self.chances_played >= 15:
                         if not self.show_game_over_screen():

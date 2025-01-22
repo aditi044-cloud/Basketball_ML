@@ -35,32 +35,16 @@ class AutoGame(Game):
         self.load_models()
         self.shot_delay = 1000
         self.last_shot_time = 0
-        self.arrow_x2 = WIDTH - 100
-        self.arrow_y2 = HEIGHT - 100
-        self.arrow_in_motion2 = False
-        self.trajectory2 = []
-        self.basket_scored_this_chance2 = False
-        self.prev_positions2 = []
-        self.last_bounce_time2 = 0
         self.baskets_scored_left = 0
-        self.baskets_scored_right = 0
         self.player_left_name = None
-        self.player_right_name = None
 
     def load_models(self):
-        left_model_file = 'modell.pkl'
+        left_model_file = 'model.pkl'
         with open(left_model_file, 'rb') as f:
             model_data = pickle.load(f)
             self.model_l = model_data['model']
             self.poly_l = model_data['poly']
         self.player_left_name = os.path.basename(left_model_file).split('.')[0]
-
-        right_model_file = 'modelr.pkl'
-        with open(right_model_file, 'rb') as f:
-            model_data = pickle.load(f)
-            self.model_r = model_data['model']
-            self.poly_r = model_data['poly']
-        self.player_right_name = os.path.basename(right_model_file).split('.')[0]
 
     def auto_shoot(self):
         rim_x = np.array([[self.rim_x]])
@@ -74,16 +58,6 @@ class AutoGame(Game):
         self.basket_scored_this_chance = False
         self.prev_positions = []
         self.last_bounce_time = 0
-        X_poly = self.poly_r.transform(rim_x)
-        predictions = self.model_r.predict(X_poly)[0]
-        predicted_speed, predicted_angle = predictions
-        self.arrow_speed2 = predicted_speed
-        self.arrow_angle2 = np.radians(180 - predicted_angle)
-        self.trajectory2 = self.calculate_trajectory(self.arrow_speed2, self.arrow_angle2, self.arrow_x2, self.arrow_y2)
-        self.arrow_in_motion2 = True
-        self.basket_scored_this_chance2 = False
-        self.prev_positions2 = []
-        self.last_bounce_time2 = 0
 
     def check_rim_collision(self, prev_x, prev_y, ball_x, ball_y):
         rim_left_x = self.rim_x - RIM_RADIUS + 10
@@ -112,37 +86,6 @@ class AutoGame(Game):
                     return True, "back_right"
         return False, None
 
-    def check_ball_collision(self):
-        if self.arrow_in_motion and self.arrow_in_motion2:
-            dx = self.arrow_x2 - self.arrow_x
-            dy = self.arrow_y2 - self.arrow_y
-            distance = math.hypot(dx, dy)
-            
-            if distance <= BALL_RADIUS * 2:
-                collision_angle = math.atan2(dy, dx)
-                
-                if self.trajectory and self.trajectory2:
-                    dx1 = self.trajectory[0][0] - self.arrow_x
-                    dy1 = self.trajectory[0][1] - self.arrow_y
-                    speed1 = math.hypot(dx1, dy1)
-                    dx2 = self.trajectory2[0][0] - self.arrow_x2
-                    dy2 = self.trajectory2[0][1] - self.arrow_y2
-                    speed2 = math.hypot(dx2, dy2)
-                    bounce_speed1 = speed2 * 0.15
-                    bounce_speed2 = speed1 * 0.15
-                    self.trajectory = self.calculate_trajectory(
-                        bounce_speed1 * 60,
-                        collision_angle + math.pi,
-                        self.arrow_x,
-                        self.arrow_y
-                    )
-                    self.trajectory2 = self.calculate_trajectory(
-                        bounce_speed2 * 60,
-                        collision_angle,
-                        self.arrow_x2,
-                        self.arrow_y2
-                    )
-
     def show_game_over_screen(self):
         game_over_font = pygame.font.SysFont(None, 72)
         stats_font = pygame.font.SysFont(None, 48)
@@ -164,9 +107,7 @@ class AutoGame(Game):
             self.screen.blit(game_over_text, (WIDTH // 2 - game_over_text.get_width() // 2, HEIGHT // 2 - 150))
 
             left_player_text = stats_font.render(f"{self.player_left_name}: {self.baskets_scored_left}", True, BLACK)
-            right_player_text = stats_font.render(f"{self.player_right_name}: {self.baskets_scored_right}", True, BLACK)
             self.screen.blit(left_player_text, (WIDTH // 2 - left_player_text.get_width() // 2, HEIGHT // 2 - 50))
-            self.screen.blit(right_player_text, (WIDTH // 2 - right_player_text.get_width() // 2, HEIGHT // 2))
 
             play_again_btn.draw(self.screen, button_font)
 
@@ -180,17 +121,13 @@ class AutoGame(Game):
                 if event.type == pygame.QUIT:
                     running = False
             current_time = pygame.time.get_ticks()
-            if not self.arrow_in_motion and not self.arrow_in_motion2 and current_time - self.last_shot_time >= self.shot_delay:
+            if not self.arrow_in_motion and current_time - self.last_shot_time >= self.shot_delay:
                 self.auto_shoot()
                 self.last_shot_time = current_time
             ball_rect = self.ball_image.get_rect()
             ball_rect.centerx = int(self.arrow_x)
             ball_rect.centery = int(self.arrow_y)
             self.screen.blit(self.ball_image, ball_rect)
-            ball_rect2 = self.ball_image.get_rect()
-            ball_rect2.centerx = int(self.arrow_x2)
-            ball_rect2.centery = int(self.arrow_y2)
-            self.screen.blit(self.ball_image, ball_rect2)
             hoop_rect = self.hoop_image.get_rect()
             hoop_rect.centerx = self.rim_x
             hoop_rect.centery = RIM_Y + 25
@@ -219,55 +156,23 @@ class AutoGame(Game):
                 if not self.trajectory or self.arrow_y >= HEIGHT:
                     self.arrow_in_motion = False
                     self.trajectory = []
-            if self.arrow_in_motion2 and self.trajectory2:
-                prev_x2, prev_y2 = self.arrow_x2, self.arrow_y2
-                self.arrow_x2, self.arrow_y2 = self.trajectory2.pop(0)
-                dx2 = self.arrow_x2 - prev_x2
-                dy2 = self.arrow_y2 - prev_y2
-                current_speed2 = math.hypot(dx2, dy2)
-                current_time = pygame.time.get_ticks()
-                if current_time - self.last_bounce_time2 > 50:
-                    rim_collision2, collision_type2 = self.check_rim_collision(prev_x2, prev_y2, self.arrow_x2, self.arrow_y2)
-                    if rim_collision2:
-                        self.last_bounce_time2 = current_time
-                        bounce_speed2 = current_speed2 * 0.15
-                        if collision_type2 in ["front_left", "front_right"]:
-                            bounce_angle2 = math.pi - math.atan2(-dy2, dx2)
-                            bounce_angle2 += 0.1 if bounce_angle2 > 0 else -0.1
-                        elif collision_type2 in ["top_left", "top_right"]:
-                            bounce_angle2 = -math.atan2(dy2, dx2)
-                            bounce_angle2 += 0.2 if collision_type2 == "top_right" else -0.2
-                        self.trajectory2 = self.calculate_trajectory(bounce_speed2 * 60, bounce_angle2, self.arrow_x2, self.arrow_y2)
-                if self.check_basket_score(self.arrow_x2, self.arrow_y2):
-                    self.baskets_scored_right += 1
-                if not self.trajectory2 or self.arrow_y2 >= HEIGHT:
-                    self.arrow_in_motion2 = False
-                    self.trajectory2 = []
-            self.check_ball_collision()
-            if not self.arrow_in_motion and not self.arrow_in_motion2:
-                self.arrow_x, self.arrow_y = 100, HEIGHT - 100
-                self.arrow_x2, self.arrow_y2 = WIDTH - 100, HEIGHT - 100
-                self.chances_played += 1
-                self.rim_x = random.randint(200, WIDTH - 200)
-                if self.chances_played >= 15:
-                    if not self.show_game_over_screen():
-                        running = False
+                    self.arrow_x, self.arrow_y = 100, HEIGHT - 100
+                    self.chances_played += 1
+                    self.rim_x = random.randint(200, WIDTH - 200)
+                    if self.chances_played >= 15:
+                        if not self.show_game_over_screen():
+                            running = False
             self.display_stats()
             pygame.display.flip()
             self.clock.tick(60)
         pygame.quit()
 
     def display_stats(self):
-        score_left_text = self.font.render(f"Left Baskets: {self.baskets_scored_left}", True, BLACK)
-        self.screen.blit(score_left_text, (10, 16))
-
-        score_right_text = self.font.render(f"Right Baskets: {self.baskets_scored_right}", True, BLACK)
-        score_right_rect = score_right_text.get_rect(topright=(WIDTH - 10, 16))
-        self.screen.blit(score_right_text, score_right_rect)
-
         chances_text = self.font.render(f"Chances: {self.chances_played} / 15", True, BLACK)
-        chances_rect = chances_text.get_rect(midtop=(WIDTH // 2, 16))
-        self.screen.blit(chances_text, chances_rect)
+        self.screen.blit(chances_text, (10, 10))
+
+        score_text = self.font.render(f"Baskets Scored: {self.baskets_scored} / 15", True, BLACK)
+        self.screen.blit(score_text, (10, 40))
 
 if __name__ == "__main__":
     game = AutoGame()

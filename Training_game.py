@@ -3,8 +3,6 @@ import math
 import random
 import csv
 import os
-import time
-import pickle
 
 WIDTH, HEIGHT = 800, 600
 BALL_RADIUS = 20
